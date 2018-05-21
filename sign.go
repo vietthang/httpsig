@@ -88,24 +88,24 @@ func (r *Signer) Sign(req *http.Request) error {
 func signRequest(id string, key interface{}, algo Algorithm, headers []string,
 	req *http.Request) (params string, err error) {
 
-	signature_data := BuildSignatureData(req, headers)
+	signatureData := BuildSignatureData(req, headers)
 
-	signature, err := algo.Sign(key, signature_data)
+	signature, err := algo.Sign(key, signatureData)
 	if err != nil {
 		return "", err
 	}
 
 	// The headers parameter can be omitted if the only header is "Date". The
 	// receiving end assumes ["date"] if no headers paramter is present.
-	var headers_param string
+	var headersParam string
 	if !(len(headers) == 1 && headers[0] == "date") {
-		headers_param = fmt.Sprintf("headers=%q,", strings.Join(headers, " "))
+		headersParam = fmt.Sprintf("headers=%q,", strings.Join(headers, " "))
 	}
 
 	return fmt.Sprintf(
 		"keyId=%q,algorithm=%q,%ssignature=%q",
 		id,
 		algo.Name(),
-		headers_param,
+		headersParam,
 		base64.StdEncoding.EncodeToString(signature)), nil
 }

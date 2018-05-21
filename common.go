@@ -15,17 +15,9 @@
 package httpsig
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
-)
-
-var (
-	// Rand is a hookable reader used as a random byte source.
-	Rand io.Reader = rand.Reader
 )
 
 // requestPath returns the :path pseudo header according to the HTTP/2 spec.
@@ -67,26 +59,6 @@ func BuildSignatureString(req *http.Request, headers []string) string {
 // returns []byte instead of a string.
 func BuildSignatureData(req *http.Request, headers []string) []byte {
 	return []byte(BuildSignatureString(req, headers))
-}
-
-func toRSAPrivateKey(key interface{}) *rsa.PrivateKey {
-	switch k := key.(type) {
-	case *rsa.PrivateKey:
-		return k
-	default:
-		return nil
-	}
-}
-
-func toRSAPublicKey(key interface{}) *rsa.PublicKey {
-	switch k := key.(type) {
-	case *rsa.PublicKey:
-		return k
-	case *rsa.PrivateKey:
-		return &k.PublicKey
-	default:
-		return nil
-	}
 }
 
 func toHMACKey(key interface{}) []byte {

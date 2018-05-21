@@ -17,18 +17,19 @@ package httpsig
 import (
 	"crypto"
 	"crypto/rsa"
+	"crypto/rand"
 )
 
 // RSASHA1 implements RSA PKCS1v15 signatures over a SHA1 digest
-var RSASHA1 Algorithm = rsa_sha1{}
+var RSASHA1 Algorithm = rsaSha1{}
 
-type rsa_sha1 struct{}
+type rsaSha1 struct{}
 
-func (rsa_sha1) Name() string {
+func (rsaSha1) Name() string {
 	return "rsa-sha1"
 }
 
-func (a rsa_sha1) Sign(key interface{}, data []byte) ([]byte, error) {
+func (a rsaSha1) Sign(key interface{}, data []byte) ([]byte, error) {
 	k := toRSAPrivateKey(key)
 	if k == nil {
 		return nil, unsupportedAlgorithm(a)
@@ -36,7 +37,7 @@ func (a rsa_sha1) Sign(key interface{}, data []byte) ([]byte, error) {
 	return RSASign(k, crypto.SHA1, data)
 }
 
-func (a rsa_sha1) Verify(key interface{}, data, sig []byte) error {
+func (a rsaSha1) Verify(key interface{}, data, sig []byte) error {
 	k := toRSAPublicKey(key)
 	if k == nil {
 		return unsupportedAlgorithm(a)
@@ -45,15 +46,15 @@ func (a rsa_sha1) Verify(key interface{}, data, sig []byte) error {
 }
 
 // RSASHA256 implements RSA PKCS1v15 signatures over a SHA256 digest
-var RSASHA256 Algorithm = rsa_sha256{}
+var RSASHA256 Algorithm = rsaSha256{}
 
-type rsa_sha256 struct{}
+type rsaSha256 struct{}
 
-func (rsa_sha256) Name() string {
+func (rsaSha256) Name() string {
 	return "rsa-sha256"
 }
 
-func (a rsa_sha256) Sign(key interface{}, data []byte) ([]byte, error) {
+func (a rsaSha256) Sign(key interface{}, data []byte) ([]byte, error) {
 	k := toRSAPrivateKey(key)
 	if k == nil {
 		return nil, unsupportedAlgorithm(a)
@@ -61,12 +62,32 @@ func (a rsa_sha256) Sign(key interface{}, data []byte) ([]byte, error) {
 	return RSASign(k, crypto.SHA256, data)
 }
 
-func (a rsa_sha256) Verify(key interface{}, data, sig []byte) error {
+func (a rsaSha256) Verify(key interface{}, data, sig []byte) error {
 	k := toRSAPublicKey(key)
 	if k == nil {
 		return unsupportedAlgorithm(a)
 	}
 	return RSAVerify(k, crypto.SHA256, data, sig)
+}
+
+func toRSAPrivateKey(key interface{}) *rsa.PrivateKey {
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		return k
+	default:
+		return nil
+	}
+}
+
+func toRSAPublicKey(key interface{}) *rsa.PublicKey {
+	switch k := key.(type) {
+	case *rsa.PublicKey:
+		return k
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	default:
+		return nil
+	}
 }
 
 // RSASign signs a digest of the data hashed using the provided hash
@@ -77,7 +98,7 @@ func RSASign(key *rsa.PrivateKey, hash crypto.Hash, data []byte) (
 	if _, err := h.Write(data); err != nil {
 		return nil, err
 	}
-	return rsa.SignPKCS1v15(Rand, key, hash, h.Sum(nil))
+	return rsa.SignPKCS1v15(rand.Reader, key, hash, h.Sum(nil))
 }
 
 // RSAVerify verifies a signed digest of the data hashed using the provided hash

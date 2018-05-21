@@ -15,7 +15,6 @@
 package httpsig
 
 import (
-	"crypto"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -24,31 +23,42 @@ import (
 )
 
 type Verifier struct {
-	key_getter       KeyGetter
-	required_headers []string
+	algorithms      []Algorithm
+	keyGetter       KeyGetter
+	requiredHeaders []string
 }
 
-func NewVerifier(key_getter KeyGetter) *Verifier {
+func NewVerifier(keyGetter KeyGetter, algorithms []Algorithm) *Verifier {
+	if len(algorithms) == 0 {
+		algorithms = []Algorithm{
+			HMACSHA256,
+			RSASHA1,
+			RSASHA256,
+			ECDSASHA1,
+			ECDSASHA256,
+		}
+	}
 	v := &Verifier{
-		key_getter: key_getter,
+		algorithms: algorithms,
+		keyGetter:  keyGetter,
 	}
 	v.SetRequiredHeaders(nil)
 	return v
 }
 
 func (v *Verifier) RequiredHeaders() []string {
-	return append([]string{}, v.required_headers...)
+	return append([]string{}, v.requiredHeaders...)
 }
 
 func (v *Verifier) SetRequiredHeaders(headers []string) {
 	if len(headers) == 0 {
 		headers = []string{"date"}
 	}
-	required_headers := make([]string, 0, len(headers))
+	requiredHeaders := make([]string, 0, len(headers))
 	for _, h := range headers {
-		required_headers = append(required_headers, strings.ToLower(h))
+		requiredHeaders = append(requiredHeaders, strings.ToLower(h))
 	}
-	v.required_headers = required_headers
+	v.requiredHeaders = requiredHeaders
 }
 
 func (v *Verifier) Verify(req *http.Request) error {
@@ -57,7 +67,7 @@ func (v *Verifier) Verify(req *http.Request) error {
 	if params == nil {
 		return fmt.Errorf("no params present")
 	}
-	if params.KeyId == "" {
+	if params.KeyID == "" {
 		return fmt.Errorf("keyId is required")
 	}
 	if params.Algorithm == "" {
@@ -71,49 +81,35 @@ func (v *Verifier) Verify(req *http.Request) error {
 	}
 
 header_check:
-	for _, required_header := range v.required_headers {
+	for _, requiredHeader := range v.requiredHeaders {
 		for _, header := range params.Headers {
-			if strings.ToLower(required_header) == strings.ToLower(header) {
+			if strings.ToLower(requiredHeader) == strings.ToLower(header) {
 				continue header_check
 			}
 		}
-		return fmt.Errorf("missing required header in signature %q",
-			required_header)
+		return fmt.Errorf("missing required header in signature %q", requiredHeader)
 	}
 
 	// calculate signature string for request
-	sig_data := BuildSignatureData(req, params.Headers)
+	sigData := BuildSignatureData(req, params.Headers)
 
 	// look up key based on keyId
-	key := v.key_getter.GetKey(params.KeyId)
+	key := v.keyGetter.GetKey(params.KeyID)
 	if key == nil {
-		return fmt.Errorf("no key with id %q", params.KeyId)
+		return fmt.Errorf("no key with id %q", params.KeyID)
 	}
 
-	switch params.Algorithm {
-	case "rsa-sha1":
-		rsa_pubkey := toRSAPublicKey(key)
-		if rsa_pubkey == nil {
-			return fmt.Errorf("algorithm %q is not supported by key %q",
-				params.Algorithm, params.KeyId)
+	found := false
+	for _, algorithm := range v.algorithms {
+		if algorithm.Name() == params.Algorithm {
+			found = true
+			if err := algorithm.Verify(key, sigData, params.Signature); err != nil {
+				return err
+			}
 		}
-		return RSAVerify(rsa_pubkey, crypto.SHA1, sig_data, params.Signature)
-	case "rsa-sha256":
-		rsa_pubkey := toRSAPublicKey(key)
-		if rsa_pubkey == nil {
-			return fmt.Errorf("algorithm %q is not supported by key %q",
-				params.Algorithm, params.KeyId)
-		}
-		return RSAVerify(rsa_pubkey, crypto.SHA256, sig_data, params.Signature)
-	case "hmac-sha256":
-		hmac_key := toHMACKey(key)
-		if hmac_key == nil {
-			return fmt.Errorf("algorithm %q is not supported by key %q",
-				params.Algorithm, params.KeyId)
-		}
-		return HMACVerify(hmac_key, crypto.SHA256, sig_data, params.Signature)
-	default:
-		return fmt.Errorf("unsupported algorithm %q", params.Algorithm)
+	}
+	if !found {
+		return fmt.Errorf("unsupported algorithm %s", params.Algorithm)
 	}
 
 	return nil
@@ -124,7 +120,7 @@ header_check:
 var paramRE = regexp.MustCompile(`(?U)\s*([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*"(.*)"\s*`)
 
 type Params struct {
-	KeyId     string
+	KeyID     string
 	Algorithm string
 	Headers   []string
 	Signature []byte
@@ -157,7 +153,7 @@ func getParams(req *http.Request, header, prefix string) *Params {
 		for _, match := range matches {
 			switch match[1] {
 			case "keyId":
-				params.KeyId = match[2]
+				params.KeyID = match[2]
 			case "algorithm":
 				if algorithm, ok := parseAlgorithm(match[2]); ok {
 					params.Algorithm = algorithm

@@ -23,7 +23,7 @@ import (
 func TestHandlerNoRealm(t *testing.T) {
 	test := NewTest(t)
 
-	v := NewVerifier(test)
+	v := NewVerifier(test, nil)
 
 	counter := new(ServeCounter)
 
@@ -46,7 +46,7 @@ func TestHandlerNoRealm(t *testing.T) {
 func TestHandlerWithRealm(t *testing.T) {
 	test := NewTest(t)
 
-	v := NewVerifier(test)
+	v := NewVerifier(test, nil)
 
 	counter := new(ServeCounter)
 
@@ -69,7 +69,7 @@ func TestHandlerWithRealm(t *testing.T) {
 func TestHandlerRejectsRequestWithoutRequiredHeadersInSignature(t *testing.T) {
 	test := NewTest(t)
 
-	v := NewVerifier(test)
+	v := NewVerifier(test, nil)
 	v.SetRequiredHeaders([]string{"(request-target)", "date"})
 
 	counter := new(ServeCounter)
@@ -96,7 +96,7 @@ func TestHandlerRejectsRequestWithoutRequiredHeadersInSignature(t *testing.T) {
 func TestHandlerRejectsModifiedRequest(t *testing.T) {
 	test := NewTest(t)
 
-	v := NewVerifier(test)
+	v := NewVerifier(test, nil)
 	v.SetRequiredHeaders([]string{"(request-target)", "date"})
 
 	counter := new(ServeCounter)
@@ -125,7 +125,7 @@ func TestHandlerRejectsModifiedRequest(t *testing.T) {
 func TestHandlerAcceptsSignedRequest(t *testing.T) {
 	test := NewTest(t)
 
-	v := NewVerifier(test)
+	v := NewVerifier(test, nil)
 	v.SetRequiredHeaders([]string{"(request-target)", "date"})
 
 	counter := new(ServeCounter)
