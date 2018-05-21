@@ -18,7 +18,6 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -74,19 +73,18 @@ func NewHMACSHA256Signer(id string, key []byte, headers []string) (
 }
 
 // Sign signs an http request and adds the signature to the authorization header
-func (r *Signer) Sign(req *http.Request) error {
+func (r *Signer) Sign(req Request) error {
 	params, err := signRequest(r.id, r.key, r.algo, r.headers, req)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Authorization", "Signature "+params)
+	req.Header().Set("Authorization", "Signature "+params)
 	return nil
 }
 
 // signRequest signs an http request and returns the parameter string.
-func signRequest(id string, key interface{}, algo Algorithm, headers []string,
-	req *http.Request) (params string, err error) {
+func signRequest(id string, key interface{}, algo Algorithm, headers []string, req Request) (params string, err error) {
 
 	signatureData := BuildSignatureData(req, headers)
 

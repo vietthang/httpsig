@@ -61,7 +61,7 @@ func (v *Verifier) SetRequiredHeaders(headers []string) {
 	v.requiredHeaders = requiredHeaders
 }
 
-func (v *Verifier) Verify(req *http.Request) error {
+func (v *Verifier) Verify(req Request) error {
 	// retrieve and validate params from the request
 	params := getParamsFromAuthHeader(req)
 	if params == nil {
@@ -126,12 +126,12 @@ type Params struct {
 	Signature []byte
 }
 
-func getParamsFromAuthHeader(req *http.Request) *Params {
+func getParamsFromAuthHeader(req Request) *Params {
 	return getParams(req, "Authorization", "Signature ")
 }
 
-func getParams(req *http.Request, header, prefix string) *Params {
-	values := req.Header[http.CanonicalHeaderKey(header)]
+func getParams(req Request, header, prefix string) *Params {
+	values := req.Header()[http.CanonicalHeaderKey(header)]
 	// last well-formed parameter wins
 	for i := len(values) - 1; i >= 0; i-- {
 		value := values[i]

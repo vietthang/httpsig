@@ -20,20 +20,8 @@ import (
 	"strings"
 )
 
-// requestPath returns the :path pseudo header according to the HTTP/2 spec.
-func requestPath(req *http.Request) string {
-	path := req.URL.Path
-	if path == "" {
-		path = "/"
-	}
-	if req.URL.RawQuery != "" {
-		path += "?" + req.URL.RawQuery
-	}
-	return path
-}
-
 // BuildSignatureString constructs a signature string following section 2.3
-func BuildSignatureString(req *http.Request, headers []string) string {
+func BuildSignatureString(req Request, headers []string) string {
 	if len(headers) == 0 {
 		headers = []string{"date"}
 	}
@@ -42,11 +30,11 @@ func BuildSignatureString(req *http.Request, headers []string) string {
 		switch h {
 		case "(request-target)":
 			values = append(values, fmt.Sprintf("%s: %s %s",
-				h, strings.ToLower(req.Method), requestPath(req)))
+				h, strings.ToLower(req.Method()), req.Path()))
 		case "host":
-			values = append(values, fmt.Sprintf("%s: %s", h, req.Host))
+			values = append(values, fmt.Sprintf("%s: %s", h, req.Host()))
 		default:
-			for _, value := range req.Header[http.CanonicalHeaderKey(h)] {
+			for _, value := range req.Header()[http.CanonicalHeaderKey(h)] {
 				values = append(values,
 					fmt.Sprintf("%s: %s", h, strings.TrimSpace(value)))
 			}
@@ -57,7 +45,7 @@ func BuildSignatureString(req *http.Request, headers []string) string {
 
 // BuildSignatureData is a convenience wrapper around BuildSignatureString that
 // returns []byte instead of a string.
-func BuildSignatureData(req *http.Request, headers []string) []byte {
+func BuildSignatureData(req Request, headers []string) []byte {
 	return []byte(BuildSignatureString(req, headers))
 }
 
@@ -72,4 +60,11 @@ func toHMACKey(key interface{}) []byte {
 
 func unsupportedAlgorithm(a Algorithm) error {
 	return fmt.Errorf("key does not support algorithm %q", a.Name())
+}
+
+type Request interface {
+	Header() http.Header
+	Method() string
+	Path() string
+	Host() string
 }
